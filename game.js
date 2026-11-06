@@ -33,6 +33,7 @@ const createScene = () => {
     const spinSpeed = 0.05
 
     var ground = BABYLON.MeshBuilder.CreateGround("ground", {width:6, height:6}, scene)
+    ground.diffuseColor = new BABYLON.Color3(0.6, 0.3, 0.3)
     ground.position.y = -1
 
     const box2 = BABYLON.MeshBuilder.CreateBox("box", { size: 1 }, scene)
@@ -40,25 +41,45 @@ const createScene = () => {
     box2.position.y = 1
     box2.position.z = 1
     // Simple frame-by-frame animation loop to spin the box
+
+    let animationTicker = 2
     scene.onBeforeRenderObservable.add(() => {
         box2.rotation.y += 0.01
         box2.rotation.x += 0.005
+        //box2.position.y += animationTicker
     })
 
     //User input here
     scene.onBeforeRenderObservable.add(() => {
-        if (inputMap["arrowleft"] || inputMap["a"]) {
+        if (inputMap["arrowleft"]) {
             box.rotation.y -= spinSpeed
         }
-        if (inputMap["arrowright"] || inputMap["d"]) {
+        if (inputMap["arrowright"]) {
             box.rotation.y += spinSpeed
         }
-        if (inputMap["arrowup"] || inputMap["w"]) {
+        if (inputMap["arrowup"]) {
             box.rotation.x -= spinSpeed
         }
-        if (inputMap["arrowdown"] || inputMap["s"]) {
+        if (inputMap["arrowdown"]) {
             box.rotation.x += spinSpeed
         }
+
+        // Box movement code
+        if (inputMap["a"]) {
+            box.position.z -= spinSpeed
+        }
+        if (inputMap["d"]) {
+            box.position.z += spinSpeed
+        }
+        if (inputMap["w"]) {
+            box.position.x -= spinSpeed
+        }
+        if (inputMap["s"]) {
+            box.position.x += spinSpeed
+        }
+
+
+        // Ground controls
         if (inputMap["u"]) {
             ground.position.y += 0.02
         }
@@ -161,8 +182,96 @@ const createScene2 = function () {
     return scene
 }
 
+const createScene3 = function () {
+    const scene = new BABYLON.Scene(engine)
+
+    const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 4, Math.PI / 3, 35, BABYLON.Vector3.Zero(), scene)
+    camera.position.y -= 5
+    camera.attachControl(canvas, true)
+    camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput")
+
+
+    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene)
+    light.intensity = 0.7
+
+
+    const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 40, height: 40}, scene)
+    const groundMaterial = new BABYLON.StandardMaterial("groundMat", scene)
+    ground.material = groundMaterial
+    ground.checkCollisions = true
+
+
+    const player = BABYLON.MeshBuilder.CreateSphere("player", {diameter: 2, segments: 16}, scene)
+    player.position.y = 1
+    player.checkCollisions = true
+    player.ellipsoid = new BABYLON.Vector3(1, 1, 1)
+
+    const playerMaterial = new BABYLON.StandardMaterial("playerMat", scene)
+    const stripeTexture = new BABYLON.DynamicTexture("dynamicTex", 512, scene, true)
+    const ctx = stripeTexture.getContext()
+    ctx.fillStyle = "#e66425"
+    ctx.fillRect(0, 0, 512, 512)
+    ctx.fillStyle = "#331100"
+    for (let i = 0; i < 512; i += 64) {
+        ctx.fillRect(i, 0, 20, 512)
+    }
+    stripeTexture.update()
+    playerMaterial.diffuseTexture = stripeTexture
+    player.material = playerMaterial
+
+    const inputMap = {}
+    scene.actionManager = new BABYLON.ActionManager(scene)
+    
+    scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+        inputMap[evt.sourceEvent.key.toLowerCase()] = evt.sourceEvent.type === "keydown"
+    }))
+    
+    scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+        inputMap[evt.sourceEvent.key.toLowerCase()] = evt.sourceEvent.type === "keydown"
+    }))
+
+
+    let spawnTimer = 0
+    const moveSpeed = 0.2
+    const rollFactor = 0.1
+
+    scene.onBeforeRenderObservable.add(() => {
+        if (player.position.y < -20) {
+            player.position.x = 0
+            player.position.y = 1
+            player.position.z = 0
+            return
+        }
+
+        let moveVector = new BABYLON.Vector3(0, -0.5, 0)
+
+        if (player.position.y >= 0.9) {
+            if (inputMap["w"] || inputMap["arrowup"]) {
+                moveVector.z += moveSpeed
+                player.rotation.x += rollFactor
+            }
+            if (inputMap["s"] || inputMap["arrowdown"]) {
+                moveVector.z -= moveSpeed
+                player.rotation.x -= rollFactor
+            }
+            if (inputMap["a"] || inputMap["arrowleft"]) {
+                moveVector.x -= moveSpeed
+                player.rotation.z += rollFactor
+            }
+            if (inputMap["d"] || inputMap["arrowright"]) {
+                moveVector.x += moveSpeed
+                player.rotation.z -= rollFactor
+            }
+        }
+
+        player.moveWithCollisions(moveVector)
+    })
+
+    return scene
+}
+
 levels = []
-levels.push(createScene(), createScene2())
+levels.push(createScene(), createScene2(), createScene3())
 
 // Run the engines main render loop
 engine.runRenderLoop(() => {
